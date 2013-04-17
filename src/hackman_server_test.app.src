@@ -1,0 +1,10 @@
+{application, hackman_server_test, [
+    {description, "11"},
+    {vsn, "1"},
+    {registered, []},
+    {applications, [
+        kernel, sasl, stdlib, crypto, compiler, lager, syntax_tools, jsx, public_key, ssl, websocket_client
+    ]},
+    {mod, { hackman_server_test_app, []}},
+    {env, []}
+]}.
