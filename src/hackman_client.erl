@@ -23,14 +23,25 @@ send_event(HackmanClientHandle, Message, _State) ->
 %% gen_fsm callbacks
 init(_Args) ->
 	lager:debug("HackmanClient started..."),
+	<<A:32, B:32, C:32>> = crypto:rand_bytes(12),
+	random:seed({A,B,C}),
 	{ok, WebsocketClientPid} = hst_websocket_client:start_link(erlang:self()),
-	{ok, login, #state{websocket_client_pid = WebsocketClientPid}}.
-waiting_connect({connected}, State) ->
-	hst_websocket_client:send_message(State#state.websocket_client_pid, hst_messages_composer:login()),
+	{ok, waiting_connect, #state{websocket_client_pid = WebsocketClientPid}}.
+waiting_connect({<<"connected">>}, State) ->
+	hst_websocket_client:send_message(State#state.websocket_client_pid, hst_messages_composer:login(State)),
 	{next_state, waiting_login, State}.
-waiting_login({loginResponse, _Data}, State) ->
+waiting_login({<<"loginResponse">>, _Data}, State) ->
 	lager:debug("Login!"),
-	{next_state, state_name, State}.
+	NextState = case choose_one([join_match, create_match]) of
+								join_match ->
+									hst_websocket_client:send_message(State#state.websocket_client_pid, hst_messages_composer:list_matches(State)),
+									waiting_list_matches;
+								create_match ->
+									hst_websocket_client:send_message(State#state.websocket_client_pid, hst_messages_composer:create_match(State)),
+									waiting_create_match
+									end,
+	{next_state, NextState, State}.
+
 
 state_name(_Event, _From, State) ->
 	{reply, ok, state_name, State}.
@@ -49,3 +60,7 @@ terminate(_Reason, _StateName, _State) ->
 
 code_change(_OldVsn, StateName, State, _Extra) ->
 	{ok, StateName, State}.
+
+choose_one(Options) ->
+	lists:nth(random:uniform(length(Options)), Options).
+

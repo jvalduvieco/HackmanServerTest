@@ -8,23 +8,23 @@
 
 start_link(HackmanClientHandle) ->
 	lager:debug("Starting websocket client..."),
-	websocket_client:start_link(hst_config:get(server_url), ?MODULE, [HackmanClientHandle]).
+	websocket_client:start_link(hst_config:get(server_url), ?MODULE, HackmanClientHandle).
 
 init(HackmanClientHandle, ConnState) ->
 	lager:debug("Connected! ~p",[ConnState]),
-	hackman_client:send_event(HackmanClientHandle, {connected},[]),
-	{ok, [#state{hackman_client_handle = HackmanClientHandle}]}.
+	hackman_client:send_event(HackmanClientHandle, {<<"connected">>},[]),
+	{ok, #state{hackman_client_handle = HackmanClientHandle}}.
 
 websocket_handle({pong, _Msg}, _ConnState, State) ->
 	{ok, State};
-websocket_handle(Message, _ConnState, State) ->
+websocket_handle({text, Message}, _ConnState, State) ->
 	io:format("Received msg ~p~n", [Message]),
 	Decoded = jsx:decode(Message),
 	%%lager:debug("Decoded: ~p",[Decoded]),
 	{Type, _Session} = get_metadata(Decoded),
 	Event = {Type, get_data(Decoded)},
-	{Action, Response, NewState} = hackman_client:send_event(State#state.hackman_client_handle, Event, State),
-	handle_result(Action, Response, NewState).
+	ok = hackman_client:send_event(State#state.hackman_client_handle, Event, State),
+	{ok, State}.
 
 
 
