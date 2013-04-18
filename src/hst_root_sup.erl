@@ -16,8 +16,7 @@ start_link() ->
 
 %% supervisor callbacks
 init([]) ->
-	lager:debug("ssssssss"),
 	HackmanClientStartSpec = {{local, hackman_client},
 		{hackman_client, start_link, []},
 		permanent, infinity, worker, [hackman_client]},
-	{ok, {{simple_one_for_one, 5, 10}, [HackmanClientStartSpec]}}.
+	{ok, {{one_for_one, 1, 1}, [HackmanClientStartSpec]}}.

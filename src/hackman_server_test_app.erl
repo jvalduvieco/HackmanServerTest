@@ -12,7 +12,6 @@ start(_Type, _Args) ->
 	%lager:set_loglevel(lager_console_backend, hst_config:get(log_level)),
 
 	lager:set_loglevel(lager_console_backend, debug),
-	lager:debug("wwwwwwwww"),
 	hst_root_sup:start_link().
 
 stop(_State) ->
