@@ -26,7 +26,7 @@ websocket_handle({text, Message}, _ConnState, State) ->
 	{ok, State}.
 
 websocket_info(Message, _ConnState, State) ->
-	%lager:debug("==> ~p",[Message]),
+	lager:debug("==> ~p",[Message]),
 	{reply, {text, jsx:encode(Message)}, State}.
 
 websocket_terminate({close, Code, Payload}, _ConnState, State) ->
