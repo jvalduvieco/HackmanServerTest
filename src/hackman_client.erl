@@ -33,47 +33,47 @@ send_event(HackmanClientHandle, Message, _State) ->
 init(_Params) ->
 	<<A:32, B:32, C:32>> = crypto:rand_bytes(12),
 	random:seed({A,B,C}),
-	GameId = <<"0">>,
-	{ok, WebsocketClientPid} = hst_websocket_client:start_link(erlang:self()),
-	{ok, waiting_connect, #client_state{websocket_client_pid = WebsocketClientPid, game_id = GameId}}.
+	GameId = hst_config:get(game_id, none),
+	case hst_websocket_client:start_link(erlang:self()) of
+		{ok, WebsocketClientPid} ->
+			{ok, waiting_connect, #client_state{websocket_client_pid = WebsocketClientPid, game_id = GameId}};
+		{error, Reason} ->
+			{stop, {error,Reason}}
+		end.
 waiting_connect({<<"connected">>, _Data}, State) ->
 	hst_websocket_client:send_message(State#client_state.websocket_client_pid, hst_messages_composer:login(State)),
 	{next_state, waiting_login, State}.
 waiting_login({<<"loginResponse">>, Data}, State) ->
 	Session = proplists:get_value(<<"sessionId">>, Data, none),
 	NewState = State#client_state{session_id = Session, player_id = <<"robot">>},
-	NextState = case choose_one([join_match, create_match], true) of
-								join_match ->
-									hst_websocket_client:send_message(
-										NewState#client_state.websocket_client_pid, hst_messages_composer:list_matches(NewState)),
-									waiting_list_matches;
-								create_match ->
-									hst_websocket_client:send_message(
-										NewState#client_state.websocket_client_pid, hst_messages_composer:new_match(NewState)),
-									waiting_create_match
-									end,
-	{next_state, NextState, NewState}.
+	case choose_one([join_match, create_match]) of
+		join_match ->
+			hst_websocket_client:send_message(
+				NewState#client_state.websocket_client_pid, hst_messages_composer:list_matches(NewState)),
+			{next_state, waiting_list_matches, NewState};
+		create_match ->
+			hst_websocket_client:send_message(
+				NewState#client_state.websocket_client_pid, hst_messages_composer:new_match(NewState)),
+			{next_state, waiting_create_match, NewState}
+	end.
 waiting_create_match ({<<"newMatchResponse">>, _Data}, State) ->
 	hst_websocket_client:send_message(State#client_state.websocket_client_pid, hst_messages_composer:new_player(State)),
 	{next_state, waiting_new_player, State}.
 waiting_list_matches ({<<"listMatchesResponse">>, Data}, State) ->
 	MatchList = proplists:get_value(<<"matches">>, Data, none),
-	lager:debug("Matches: ~p", [MatchList]),
-	{NextState, NewState} = case MatchList of
+	case MatchList of
 		[] ->
 			%% No matches available
 			hst_websocket_client:send_message(State#client_state.websocket_client_pid, hst_messages_composer:new_match(State)),
-			{waiting_create_match, State};
+			{next_state, waiting_create_match, State};
 		_ ->
 			% Pick a random match
 			{MatchId, _} = choose_one(MatchList),
 			TmpState = State#client_state{match_id = MatchId},
 			hst_websocket_client:send_message(
 				State#client_state.websocket_client_pid, hst_messages_composer:join_match(TmpState)),
-			{waiting_join, TmpState}
-		end,
-	{next_state, NextState, NewState}.
-
+			{next_state, waiting_join, TmpState}
+	end.
 waiting_join({<<"joinMatchResponse">>, _Data}, State) ->
 	hst_websocket_client:send_message(State#client_state.websocket_client_pid, hst_messages_composer:new_player(State)),
 	{next_state, waiting_new_player, State}.
@@ -99,7 +99,7 @@ playing({timeout, _Ref, move_timeout}, State) ->
 	MoveTimer = create_move_timer(),
 	{next_state, playing, NewState#client_state{move_timer = MoveTimer}};
 playing(Event, State) ->
-	lager:debug("Unhandled event ~p",[Event]),
+	lager:warning("Unhandled event ~p",[Event]),
 	{next_state, playing, State}.
 
 state_name(_Event, _From, State) ->
