@@ -3,7 +3,7 @@
     {vsn, "1"},
     {registered, []},
     {applications, [
-        kernel, sasl, stdlib, crypto, compiler, lager, syntax_tools, jsx, public_key, ssl, websocket_client
+        kernel, sasl, stdlib, crypto, compiler, lager, syntax_tools, goldrush, asn1, jsx, public_key, ssl, websocket_client
     ]},
     {mod, { hackman_server_test_app, []}},
     {env, []}
